@@ -25,7 +25,17 @@ EOF
 confirm() {
     local prompt="$1"
     local answer=""
-    read -r -p "$prompt [j/N] " answer
+
+    if [[ -t 0 ]]; then
+        read -r -p "$prompt [j/N] " answer
+    elif [[ -r /dev/tty ]]; then
+        printf '%s [j/N] ' "$prompt" >/dev/tty
+        read -r answer </dev/tty
+    else
+        echo "Kein Terminal für Eingabe verfügbar — übersprungen: $prompt" >&2
+        return 1
+    fi
+
     case "$answer" in
         j|J|ja|Ja|y|Y|yes|Yes) return 0 ;;
         *) return 1 ;;
@@ -169,45 +179,85 @@ zsh_available() {
     command -v zsh >/dev/null 2>&1
 }
 
-maybe_install_zsh() {
-    zsh_available && return 0
+install_zsh_package() {
+    echo "zsh wird installiert …"
 
-    echo "zsh ist nicht installiert."
     if command -v pacman >/dev/null 2>&1; then
-        confirm "zsh per pacman installieren (sudo)?" || return 1
         sudo pacman -S --needed --noconfirm zsh
+    elif command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get install -y zsh
+    elif command -v apt >/dev/null 2>&1; then
+        sudo apt install -y zsh
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y zsh
+    elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y zsh
+    elif command -v zypper >/dev/null 2>&1; then
+        sudo zypper install -y zsh
+    elif command -v apk >/dev/null 2>&1; then
+        sudo apk add zsh
+    elif command -v brew >/dev/null 2>&1; then
+        brew install zsh
+    elif command -v winget >/dev/null 2>&1; then
+        winget install --id zsh.zsh --accept-package-agreements --accept-source-agreements
+    elif command -v choco >/dev/null 2>&1; then
+        choco install zsh -y
+    elif command -v scoop >/dev/null 2>&1; then
+        scoop install zsh
+    else
+        echo "Kein bekannter Paketmanager gefunden." >&2
+        echo "Bitte zsh manuell installieren und das Skript erneut ausführen." >&2
+        return 1
+    fi
+
+    if zsh_available; then
+        echo "zsh: Installation abgeschlossen."
         return 0
     fi
 
-    echo "Automatische zsh-Installation auf diesem System nicht vorgesehen."
+    echo "zsh: Installation fehlgeschlagen oder nicht im PATH." >&2
     return 1
 }
 
-maybe_install_ohmyzsh() {
-    if ohmyzsh_installed; then
-        echo "oh-my-zsh: bereits installiert."
-        return 0
+install_ohmyzsh() {
+    echo "oh-my-zsh wird installiert …"
+    RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+        "" --unattended
+    echo "oh-my-zsh: Installation abgeschlossen."
+}
+
+setup_zsh_and_ohmyzsh() {
+    echo "Zsh / oh-my-zsh"
+    echo
+
+    if zsh_available; then
+        echo "zsh: bereits vorhanden ($(command -v zsh))."
+    else
+        if confirm "zsh installieren?"; then
+            install_zsh_package || true
+        else
+            echo "zsh: übersprungen."
+        fi
     fi
 
-    if ! zsh_available; then
-        maybe_install_zsh || return 0
-    fi
+    echo
 
     if ! zsh_available; then
         echo "oh-my-zsh: übersprungen (zsh fehlt)."
         return 0
     fi
 
-    confirm "oh-my-zsh installieren?" || {
-        echo "oh-my-zsh: übersprungen."
+    if ohmyzsh_installed; then
+        echo "oh-my-zsh: bereits installiert."
         return 0
-    }
+    fi
 
-    echo "oh-my-zsh wird installiert …"
-    RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
-        "" --unattended
-    echo "oh-my-zsh: Installation abgeschlossen."
+    if confirm "oh-my-zsh installieren?"; then
+        install_ohmyzsh
+    else
+        echo "oh-my-zsh: übersprungen."
+    fi
 }
 
 status_item() {
@@ -285,7 +335,7 @@ cmd_install() {
     echo "shdft — Einrichtung"
     echo
 
-    maybe_install_ohmyzsh
+    setup_zsh_and_ohmyzsh
     echo
 
     local file

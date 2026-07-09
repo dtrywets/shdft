@@ -62,13 +62,16 @@ Alternativ neu anmelden.
 
 ## Zsh und oh-my-zsh
 
-Bei der Installation wird geprüft, ob oh-my-zsh bereits vorhanden ist. Falls nicht und `zsh` verfügbar ist, erscheint die Abfrage:
+Bei der Installation fragt das Skript nacheinander:
 
 ```
+zsh installieren? [j/N]
 oh-my-zsh installieren? [j/N]
 ```
 
-Auf Arch/EndeavourOS wird bei fehlendem `zsh` optional `pacman -S zsh` angeboten (ebenfalls mit `[j/N]`).
+Bereits vorhandene Komponenten werden übersprungen. zsh wird über den erkannten Paketmanager installiert (pacman, apt, dnf, yum, zypper, apk, brew, winget, choco, scoop).
+
+Auch der One-Liner funktioniert interaktiv — Eingaben laufen über `/dev/tty`, nicht über die Pipe.
 
 Nach der oh-my-zsh-Installation werden die shdft-Einstellungen am Ende der `~/.zshrc` ergänzt und überschreiben damit das Theme-Prompt für den vollen Pfad.
 
