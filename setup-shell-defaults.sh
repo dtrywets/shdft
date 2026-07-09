@@ -124,8 +124,8 @@ write_block() {
             echo "export PROMPT_DIRTRIM=0"
             echo "PS1='[\\u@\\h \${PWD/#\$HOME/\\~}]\$ '"
         else
-            echo "export PROMPT_DIRTRIM=0"
-            echo "PROMPT='[%n@%m \${PWD/#\$HOME/\\~}]%# '"
+            echo "setopt PROMPT_SUBST"
+            echo 'PROMPT="[%n@%m ${PWD/#$HOME/\~}]%# "'
         fi
 
         echo "$SHDFT_END"
@@ -227,6 +227,35 @@ install_ohmyzsh() {
     echo "oh-my-zsh: Installation abgeschlossen."
 }
 
+maybe_set_default_shell_zsh() {
+    local zsh_path
+    zsh_path="$(command -v zsh)" || return 0
+
+    if [[ "${SHELL:-}" == "$zsh_path" ]]; then
+        echo "Standard-Shell: bereits zsh."
+        return 0
+    fi
+
+    local login_shell=""
+    if command -v getent >/dev/null 2>&1; then
+        login_shell="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || true)"
+    fi
+    if [[ -n "$login_shell" && "$login_shell" == "$zsh_path" ]]; then
+        echo "Standard-Shell: bereits zsh (Login-Eintrag)."
+        return 0
+    fi
+
+    if confirm "zsh als Standard-Shell setzen (Login/SSH)?"; then
+        if chsh -s "$zsh_path"; then
+            echo "Standard-Shell auf zsh gesetzt. Beim nächsten Login aktiv."
+        else
+            echo "chsh fehlgeschlagen — bitte manuell: chsh -s $zsh_path" >&2
+        fi
+    else
+        echo "Standard-Shell: unverändert (${SHELL:-${login_shell:-unbekannt}})."
+    fi
+}
+
 setup_zsh_and_ohmyzsh() {
     echo "Zsh / oh-my-zsh"
     echo
@@ -250,14 +279,14 @@ setup_zsh_and_ohmyzsh() {
 
     if ohmyzsh_installed; then
         echo "oh-my-zsh: bereits installiert."
-        return 0
-    fi
-
-    if confirm "oh-my-zsh installieren?"; then
+    elif confirm "oh-my-zsh installieren?"; then
         install_ohmyzsh
     else
         echo "oh-my-zsh: übersprungen."
     fi
+
+    echo
+    maybe_set_default_shell_zsh
 }
 
 status_item() {
@@ -300,6 +329,16 @@ cmd_status() {
         status_item "oh-my-zsh installiert" "yes"
     else
         status_item "oh-my-zsh installiert" "no"
+    fi
+
+    local login_shell=""
+    if command -v getent >/dev/null 2>&1; then
+        login_shell="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || true)"
+    fi
+    if [[ -n "$login_shell" ]] && [[ "$login_shell" == *zsh* ]]; then
+        status_item "Standard-Shell: $login_shell" "yes"
+    elif [[ -n "$login_shell" ]]; then
+        status_item "Standard-Shell: $login_shell (nicht zsh)" "no"
     fi
 
     if [[ -n "${MSYSTEM:-}" ]]; then
