@@ -227,6 +227,43 @@ install_ohmyzsh() {
     echo "oh-my-zsh: Installation abgeschlossen."
 }
 
+zsh_in_etc_shells() {
+    local zsh_path="$1"
+    [[ -f /etc/shells ]] || return 1
+    grep -qxF "$zsh_path" /etc/shells && return 0
+    local real_path
+    real_path="$(readlink -f "$zsh_path" 2>/dev/null || true)"
+    [[ -n "$real_path" ]] && grep -qxF "$real_path" /etc/shells
+}
+
+run_chsh() {
+    local zsh_path="$1"
+
+    if ! zsh_in_etc_shells "$zsh_path"; then
+        echo "zsh steht nicht in /etc/shells — chsh nicht möglich." >&2
+        return 1
+    fi
+
+    if [[ ! -r /dev/tty ]]; then
+        echo "Kein Terminal für chsh verfügbar." >&2
+        echo "Bitte manuell ausführen: chsh -s $zsh_path" >&2
+        return 1
+    fi
+
+    echo "Passwort für chsh eingeben (erscheint nicht beim Tippen):" >/dev/tty
+    if chsh -s "$zsh_path" </dev/tty >/dev/tty 2>&1; then
+        return 0
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        echo "chsh erneut mit sudo …" >/dev/tty
+        sudo chsh -s "$zsh_path" "$USER" </dev/tty >/dev/tty 2>&1
+        return $?
+    fi
+
+    return 1
+}
+
 maybe_set_default_shell_zsh() {
     local zsh_path
     zsh_path="$(command -v zsh)" || return 0
@@ -246,10 +283,11 @@ maybe_set_default_shell_zsh() {
     fi
 
     if confirm "zsh als Standard-Shell setzen (Login/SSH)?"; then
-        if chsh -s "$zsh_path"; then
+        if run_chsh "$zsh_path"; then
             echo "Standard-Shell auf zsh gesetzt. Beim nächsten Login aktiv."
         else
-            echo "chsh fehlgeschlagen — bitte manuell: chsh -s $zsh_path" >&2
+            echo "chsh fehlgeschlagen — bitte manuell in einem Terminal:" >&2
+            echo "  chsh -s $zsh_path" >&2
         fi
     else
         echo "Standard-Shell: unverändert (${SHELL:-${login_shell:-unbekannt}})."

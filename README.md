@@ -70,7 +70,7 @@ oh-my-zsh installieren? [j/N]
 zsh als Standard-Shell setzen (Login/SSH)? [j/N]
 ```
 
-Bereits vorhandene Komponenten werden übersprungen. zsh wird über den erkannten Paketmanager installiert (pacman, apt, dnf, yum, zypper, apk, brew, winget, choco, scoop). Die Standard-Shell wird per `chsh` gesetzt — beim nächsten Login oder SSH ist zsh (mit oh-my-zsh) aktiv.
+Bereits vorhandene Komponenten werden übersprungen. zsh wird über den erkannten Paketmanager installiert (pacman, apt, dnf, yum, zypper, apk, brew, winget, choco, scoop). Die Standard-Shell wird per `chsh` gesetzt — Passworteingabe läuft über `/dev/tty` (auch beim One-Liner). Schlägt `chsh` fehl, wird `sudo chsh` versucht.
 
 Auch der One-Liner funktioniert interaktiv — Eingaben laufen über `/dev/tty`, nicht über die Pipe.
 
